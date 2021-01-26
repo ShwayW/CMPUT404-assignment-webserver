@@ -1,5 +1,6 @@
 #  coding: utf-8 
 import socketserver
+import os
 
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
 # 
@@ -32,7 +33,17 @@ class MyWebServer(socketserver.BaseRequestHandler):
     def handle(self):
         self.data = self.request.recv(1024).strip()
         print ("Got a request of: %s\n" % self.data)
-        self.request.sendall(bytearray("OK",'utf-8'))
+        address = self.data.decode().split()[1]
+        print("address asked for is: " + address)
+        file_name = address[1:] # get rid of the "/"
+        
+        with open("./www/" + file_name, 'r') as f:
+            self.request.send("HTTP/1.1 200 OK\r\n Content-Type: text/html\r\n\r\n".encode())
+            lines_list = f.readlines()
+            content = "\n".join(lines_list)
+            self.request.sendall(content.encode())
+            
+
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
