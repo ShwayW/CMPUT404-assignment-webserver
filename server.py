@@ -1,6 +1,6 @@
 #  coding: utf-8 
 import socketserver
-import os
+from os import path
 
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
 # 
@@ -29,29 +29,47 @@ import os
 
 
 class MyWebServer(socketserver.BaseRequestHandler):
-    
-    def handle(self):
-        self.data = self.request.recv(1024).strip()
-        print ("Got a request of: %s\n" % self.data)
-        address = self.data.decode().split()[1]
-        print("address asked for is: " + address)
-        file_name = address[1:] # get rid of the "/"
-        
-        with open("./www/" + file_name, 'r') as f:
-            self.request.send("HTTP/1.1 200 OK\r\n Content-Type: text/html\r\n\r\n".encode())
-            lines_list = f.readlines()
-            content = "\n".join(lines_list)
-            self.request.sendall(content.encode())
-            
 
+	def serve_content(self, path, headers):
+		with open(path, 'r') as f:
+			lines_list = f.readlines()
+			content = "\n".join(lines_list)
+			response = headers + content
+			self.request.sendall(response.encode())
+
+	def handle(self):
+		self.data = self.request.recv(1024).strip()
+		print ("\nGot a request of: %s" % self.data)
+		request_list = self.data.decode().split()
+		request_method = request_list[0] # want to response 405 if this is not GET
+		if request_method != "GET":
+			self.request.send("HTTP/1.0 405 Method Not Allowed\r\n\r\n".encode())
+		address = request_list[1]
+		file_name = address[1:] # get rid of the "/"
+		if '../' in file_name: # if tries to access any thing above www/
+			self.request.send("HTTP/1.0 404 Not Found\r\n\r\n".encode())
+		file_path = "./www/" + file_name
+		if path.isdir(file_path) and path.exists(file_path):
+			if file_path[-1] != '/': # 301 redirect to a correct url
+				location = 'http//:localhost:8080/www/' + file_path + "/"
+				headers = "HTTP/1.0 301 Moved Permanently Location: " + location + "\r\nContent-Type: text/html\r\n\r\n"
+				self.serve_content("./www/index.html", headers)
+			headers = "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n"
+			self.serve_content("./www/index.html", headers)
+		elif path.isfile(file_path) and path.exists(file_path):
+			text_type = file_name.split('.')[-1].strip()
+			headers = "HTTP/1.0 200 OK\r\nContent-Type: text/" + text_type + "\r\n\r\n"
+			self.serve_content(file_path, headers)
+		else:
+			self.request.send("HTTP/1.0 404 Not Found\r\n\r\n".encode())
 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", 8080
+	HOST, PORT = "localhost", 8080
 
-    socketserver.TCPServer.allow_reuse_address = True
-    # Create the server, binding to localhost on port 8080
-    server = socketserver.TCPServer((HOST, PORT), MyWebServer)
+	socketserver.TCPServer.allow_reuse_address = True
+	# Create the server, binding to localhost on port 8080
+	server = socketserver.TCPServer((HOST, PORT), MyWebServer)
 
-    # Activate the server; this will keep running until you
-    # interrupt the program with Ctrl-C
-    server.serve_forever()
+	# Activate the server; this will keep running until you
+	# interrupt the program with Ctrl-C
+	server.serve_forever()
