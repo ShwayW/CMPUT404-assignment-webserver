@@ -39,23 +39,27 @@ class MyWebServer(socketserver.BaseRequestHandler):
 
 	def handle(self):
 		self.data = self.request.recv(1024).strip()
-		print ("\nGot a request of: %s" % self.data)
+		print("Got request: ", self.data)
 		request_list = self.data.decode().split()
 		request_method = request_list[0] # want to response 405 if this is not GET
 		if request_method != "GET":
 			self.request.send("HTTP/1.0 405 Method Not Allowed\r\n\r\n".encode())
+			return
 		address = request_list[1]
 		file_name = address[1:] # get rid of the "/"
-		if '../' in file_name: # if tries to access any thing above www/
+		if '../' in file_name:
+			# if tries to access any thing above www/
 			self.request.send("HTTP/1.0 404 Not Found\r\n\r\n".encode())
+			return
 		file_path = "./www/" + file_name
 		if path.isdir(file_path) and path.exists(file_path):
 			if file_path[-1] != '/': # 301 redirect to a correct url
-				location = 'http//:localhost:8080/www/' + file_path + "/"
+				location = 'http://localhost:8080/www/' + file_path + "/"
 				headers = "HTTP/1.0 301 Moved Permanently Location: " + location + "\r\nContent-Type: text/html\r\n\r\n"
 				self.serve_content("./www/index.html", headers)
-			headers = "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n"
-			self.serve_content("./www/index.html", headers)
+			else:
+				headers = "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n"
+				self.serve_content("./www/index.html", headers)
 		elif path.isfile(file_path) and path.exists(file_path):
 			text_type = file_name.split('.')[-1].strip()
 			headers = "HTTP/1.0 200 OK\r\nContent-Type: text/" + text_type + "\r\n\r\n"
