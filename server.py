@@ -39,8 +39,10 @@ class MyWebServer(socketserver.BaseRequestHandler):
 
 	def handle(self):
 		self.data = self.request.recv(1024).strip()
-		print("Got request: ", self.data)
 		request_list = self.data.decode().split()
+		if len(request_list) == 0:
+			self.request.send("HTTP/1.0 404 Not Found\r\n\r\n".encode())
+			return
 		request_method = request_list[0] # want to response 405 if this is not GET
 		if request_method != "GET":
 			self.request.send("HTTP/1.0 405 Method Not Allowed\r\n\r\n".encode())
